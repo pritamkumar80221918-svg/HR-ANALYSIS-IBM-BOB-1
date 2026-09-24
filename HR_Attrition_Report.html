@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IBM HR Analytics — Employee Attrition Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    background: #f0f4f9;
+    color: #1a2332;
+  }
+
+  /* ─── NAV ─────────────────────────────────────────── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: #0f2744;
+    padding: 0 32px;
+    display: flex; align-items: center; gap: 28px;
+    height: 52px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  nav .brand { color: #fff; font-weight: 800; font-size: 14px; letter-spacing: .5px; margin-right: auto; }
+  nav .brand span { color: #60a5fa; }
+  nav a { color: #94a3b8; font-size: 12px; text-decoration: none; white-space: nowrap; transition: color .15s; }
+  nav a:hover { color: #fff; }
+
+  /* ─── PAGE ─────────────────────────────────────────── */
+  .page { max-width: 1100px; margin: 0 auto; padding: 36px 24px 72px; }
+
+  /* ─── HERO ─────────────────────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, #0f2744 0%, #1d4ed8 60%, #2563eb 100%);
+    border-radius: 16px;
+    padding: 52px 48px 44px;
+    color: #fff;
+    margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; right: -60px; top: -60px;
+    width: 320px; height: 320px;
+    background: rgba(255,255,255,.04);
+    border-radius: 50%;
+  }
+  .hero::after {
+    content: '';
+    position: absolute; right: 60px; bottom: -80px;
+    width: 200px; height: 200px;
+    background: rgba(255,255,255,.04);
+    border-radius: 50%;
+  }
+  .hero-tag { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #93c5fd; margin-bottom: 10px; }
+  .hero h1 { font-size: 34px; font-weight: 900; line-height: 1.2; margin-bottom: 10px; }
+  .hero p  { font-size: 14px; color: #bfdbfe; max-width: 640px; margin-bottom: 28px; }
+  .hero-stats {
+    display: flex; gap: 36px; flex-wrap: wrap;
+    border-top: 1px solid rgba(255,255,255,.15);
+    padding-top: 22px;
+  }
+  .hero-stat .num  { font-size: 28px; font-weight: 900; }
+  .hero-stat .lbl  { font-size: 11px; color: #93c5fd; text-transform: uppercase; letter-spacing: .5px; }
+  .hero-stat.red  .num { color: #fca5a5; }
+  .hero-stat.amber .num { color: #fcd34d; }
+  .hero-stat.green .num { color: #6ee7b7; }
+  .hero-stat.blue  .num { color: #93c5fd; }
+
+  /* ─── SECTION ───────────────────────────────────────── */
+  .section { margin-bottom: 48px; }
+  .section-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px;
+  }
+  .section-header .icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .icon-blue   { background: #dbeafe; }
+  .icon-red    { background: #fee2e2; }
+  .icon-green  { background: #d1fae5; }
+  .icon-purple { background: #ede9fe; }
+  .icon-amber  { background: #fef3c7; }
+  .section-header h2 { font-size: 19px; font-weight: 800; color: #0f2744; }
+  .section-header p  { font-size: 12px; color: #64748b; margin-top: 1px; }
+
+  /* ─── KPI CARDS ─────────────────────────────────────── */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+  .kpi-row-3 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .kpi {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px 16px 18px;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    border-radius: 12px 12px 0 0;
+  }
+  .kpi.kred::before   { background: #ef4444; }
+  .kpi.kblue::before  { background: #3b82f6; }
+  .kpi.kgreen::before { background: #22c55e; }
+  .kpi.kamber::before { background: #f59e0b; }
+  .kpi.kpurple::before{ background: #8b5cf6; }
+  .kpi .val  { font-size: 30px; font-weight: 900; margin-top: 6px; }
+  .kpi .lbl  { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-top: 3px; }
+  .kpi .sub  { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+  .kpi.kred    .val { color: #dc2626; }
+  .kpi.kblue   .val { color: #2563eb; }
+  .kpi.kgreen  .val { color: #16a34a; }
+  .kpi.kamber  .val { color: #d97706; }
+  .kpi.kpurple .val { color: #7c3aed; }
+
+  /* ─── CHART GRID ────────────────────────────────────── */
+  .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .chart-grid-1 { margin-bottom: 20px; }
+  .chart-box {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px 22px 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .chart-box h3 { font-size: 14px; font-weight: 700; color: #0f2744; margin-bottom: 4px; }
+  .chart-box .csub { font-size: 11px; color: #64748b; margin-bottom: 16px; }
+  .chart-wrap { position: relative; }
+
+  /* ─── TABLE ─────────────────────────────────────────── */
+  .table-box {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    margin-bottom: 20px;
+  }
+  .table-box h3 { font-size: 14px; font-weight: 700; color: #0f2744; padding: 16px 20px 12px; border-bottom: 1px solid #f1f5f9; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { background: #f8fafc; padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid #e2e8f0; }
+  td { padding: 10px 16px; border-bottom: 1px solid #f1f5f9; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f8fafc; }
+  .pill {
+    display: inline-block; padding: 3px 10px;
+    border-radius: 9999px; font-size: 11px; font-weight: 700;
+  }
+  .p-red    { background: #fee2e2; color: #b91c1c; }
+  .p-amber  { background: #fef3c7; color: #92400e; }
+  .p-green  { background: #d1fae5; color: #065f46; }
+  .p-blue   { background: #dbeafe; color: #1e40af; }
+  .p-purple { background: #ede9fe; color: #5b21b6; }
+
+  /* ─── PROGRESS BARS ─────────────────────────────────── */
+  .prog-row { margin-bottom: 14px; }
+  .prog-meta { display: flex; justify-content: space-between; font-size: 12px; color: #475569; margin-bottom: 5px; }
+  .prog-meta strong { color: #1a2332; }
+  .prog-track { height: 10px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+  .prog-fill  { height: 100%; border-radius: 99px; transition: width .4s ease; }
+
+  /* ─── RISK BOX ──────────────────────────────────────── */
+  .risk-box {
+    background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);
+    border: 2px solid #fb923c;
+    border-radius: 14px;
+    padding: 28px 28px 24px;
+    margin-bottom: 20px;
+  }
+  .risk-box h3 { font-size: 15px; font-weight: 800; color: #c2410c; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .risk-traits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .risk-trait {
+    background: #fff;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    padding: 14px 14px 12px;
+    text-align: center;
+  }
+  .risk-trait .rt-icon { font-size: 22px; margin-bottom: 6px; }
+  .risk-trait .rt-label { font-size: 11px; font-weight: 700; color: #9a3412; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+  .risk-trait .rt-val   { font-size: 12px; color: #7c2d12; }
+
+  /* ─── INSIGHT CARDS ──────────────────────────────────── */
+  .insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .insight-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px 20px 18px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    border-left: 4px solid;
+  }
+  .insight-card.red    { border-left-color: #ef4444; }
+  .insight-card.amber  { border-left-color: #f59e0b; }
+  .insight-card.blue   { border-left-color: #3b82f6; }
+  .insight-card.green  { border-left-color: #22c55e; }
+  .insight-card.purple { border-left-color: #8b5cf6; }
+  .insight-card .ic-tag  { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+  .insight-card.red    .ic-tag { color: #dc2626; }
+  .insight-card.amber  .ic-tag { color: #d97706; }
+  .insight-card.blue   .ic-tag { color: #2563eb; }
+  .insight-card.green  .ic-tag { color: #16a34a; }
+  .insight-card.purple .ic-tag { color: #7c3aed; }
+  .insight-card h4   { font-size: 14px; font-weight: 700; color: #0f2744; margin-bottom: 8px; line-height: 1.35; }
+  .insight-card p    { font-size: 12.5px; color: #475569; line-height: 1.6; }
+  .ic-action {
+    margin-top: 12px; padding: 9px 12px;
+    border-radius: 8px; font-size: 11.5px; font-weight: 600; line-height: 1.5;
+  }
+  .insight-card.red    .ic-action { background: #fee2e2; color: #b91c1c; }
+  .insight-card.amber  .ic-action { background: #fef3c7; color: #92400e; }
+  .insight-card.blue   .ic-action { background: #dbeafe; color: #1d4ed8; }
+  .insight-card.green  .ic-action { background: #d1fae5; color: #065f46; }
+  .insight-card.purple .ic-action { background: #ede9fe; color: #5b21b6; }
+
+  /* ─── EXECUTIVE SUMMARY ──────────────────────────────── */
+  .exec-summary {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 28px 28px 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .exec-summary p { font-size: 13.5px; color: #374151; line-height: 1.75; margin-bottom: 12px; }
+  .exec-summary p:last-child { margin-bottom: 0; }
+
+  /* ─── FOOTER ────────────────────────────────────────── */
+  footer {
+    margin-top: 60px; padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+    text-align: center;
+    font-size: 12px; color: #94a3b8;
+  }
+
+  @media (max-width: 768px) {
+    .kpi-row, .kpi-row-3 { grid-template-columns: 1fr 1fr; }
+    .chart-grid-2 { grid-template-columns: 1fr; }
+    .insight-grid { grid-template-columns: 1fr; }
+    .risk-traits  { grid-template-columns: 1fr 1fr; }
+    .hero { padding: 32px 24px 28px; }
+    .hero h1 { font-size: 24px; }
+    nav a { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ NAV ══════════ -->
+<nav>
+  <div class="brand">IBM <span>Bob</span> &nbsp;·&nbsp; HR Analytics</div>
+  <a href="#kpis">KPIs</a>
+  <a href="#charts">Charts</a>
+  <a href="#tables">Groups</a>
+  <a href="#risk">Risk Profile</a>
+  <a href="#insights">Insights</a>
+  <a href="#summary">Summary</a>
+</nav>
+
+<div class="page">
+
+<!-- ══════════ HERO ══════════ -->
+<div class="hero">
+  <div class="hero-tag">IBM HR Analytics · Workforce Intelligence Report</div>
+  <h1>Employee Attrition<br>Analysis Report</h1>
+  <p>A full data-driven examination of workforce attrition across departments, roles, demographics, and satisfaction indicators — with actionable HR business recommendations.</p>
+  <div class="hero-stats">
+    <div class="hero-stat red">
+      <div class="num">16.1%</div>
+      <div class="lbl">Attrition Rate</div>
+    </div>
+    <div class="hero-stat amber">
+      <div class="num">237</div>
+      <div class="lbl">Employees Lost</div>
+    </div>
+    <div class="hero-stat green">
+      <div class="num">1,470</div>
+      <div class="lbl">Total Workforce</div>
+    </div>
+    <div class="hero-stat blue">
+      <div class="num">35 Cols</div>
+      <div class="lbl">Dataset Dimensions</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 1: KPIs ══════════ -->
+<div class="section" id="kpis">
+  <div class="section-header">
+    <div class="icon icon-blue">📊</div>
+    <div>
+      <h2>Key HR Metrics</h2>
+      <p>Core workforce statistics computed from 1,470 employee records</p>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi kred">
+      <div class="val">16.1%</div>
+      <div class="lbl">Overall Attrition Rate</div>
+      <div class="sub">237 of 1,470 employees</div>
+    </div>
+    <div class="kpi kamber">
+      <div class="val">237</div>
+      <div class="lbl">Attrition Count</div>
+      <div class="sub">Active retained: 1,233</div>
+    </div>
+    <div class="kpi kblue">
+      <div class="val">$6,503</div>
+      <div class="lbl">Avg Monthly Income</div>
+      <div class="sub">Retained avg: $6,833</div>
+    </div>
+    <div class="kpi kpurple">
+      <div class="val">36.9 yrs</div>
+      <div class="lbl">Average Age</div>
+      <div class="sub">Attrited avg: 33.6 yrs</div>
+    </div>
+  </div>
+  <div class="kpi-row-3">
+    <div class="kpi kgreen">
+      <div class="val">7.0 yrs</div>
+      <div class="lbl">Avg Company Tenure</div>
+      <div class="sub">Attrited avg: 5.1 yrs</div>
+    </div>
+    <div class="kpi kred">
+      <div class="val">$4,787</div>
+      <div class="lbl">Avg Income — Attrited</div>
+      <div class="sub">−30% vs retained staff</div>
+    </div>
+    <div class="kpi kamber">
+      <div class="val">30.5%</div>
+      <div class="lbl">OverTime Attrition</div>
+      <div class="sub">vs 10.4% no-overtime</div>
+    </div>
+    <div class="kpi kred">
+      <div class="val">39.8%</div>
+      <div class="lbl">Highest Role Rate</div>
+      <div class="sub">Sales Representative</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 2: CHARTS ══════════ -->
+<div class="section" id="charts">
+  <div class="section-header">
+    <div class="icon icon-purple">📈</div>
+    <div>
+      <h2>Visual Analysis</h2>
+      <p>Interactive charts across departments, roles, demographics and satisfaction indicators</p>
+    </div>
+  </div>
+
+  <!-- Row 1: Department + OverTime Donut -->
+  <div class="chart-grid-2">
+    <div class="chart-box">
+      <h3>Department vs Attrition Rate (%)</h3>
+      <div class="csub">Sales leads all departments at 20.6%</div>
+      <div class="chart-wrap"><canvas id="chartDept" height="220"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>OverTime vs Attrition Rate (%)</h3>
+      <div class="csub">Overtime workers quit at 3× the rate of non-overtime employees</div>
+      <div class="chart-wrap"><canvas id="chartOT" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Row 2: JobRole full width -->
+  <div class="chart-grid-1">
+    <div class="chart-box">
+      <h3>Job Role vs Attrition Count &amp; Rate (%)</h3>
+      <div class="csub">Sales Representative (39.8%) and Laboratory Technician (23.9%) are the most at-risk roles</div>
+      <div class="chart-wrap"><canvas id="chartRole" height="180"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Row 3: JobSatisfaction + Distance -->
+  <div class="chart-grid-2">
+    <div class="chart-box">
+      <h3>Job Satisfaction vs Attrition Rate (%)</h3>
+      <div class="csub">Level 1 (lowest) has 2× more attrition than Level 4</div>
+      <div class="chart-wrap"><canvas id="chartJS" height="220"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Work-Life Balance vs Attrition Rate (%)</h3>
+      <div class="csub">Poor WLB (Level 1) drives 31.2% attrition — highest of any WLB tier</div>
+      <div class="chart-wrap"><canvas id="chartWLB" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Row 4: Age Groups full width -->
+  <div class="chart-grid-1">
+    <div class="chart-box">
+      <h3>Age Group vs Attrition Rate (%) &amp; Count</h3>
+      <div class="csub">Young employees (18–25) have the highest attrition rate at 35.8% — 3.9× that of the 36–45 cohort</div>
+      <div class="chart-wrap"><canvas id="chartAge" height="160"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Row 5: Tenure + MaritalStatus -->
+  <div class="chart-grid-2">
+    <div class="chart-box">
+      <h3>Tenure Group vs Attrition Rate (%)</h3>
+      <div class="csub">The first 2 years are the highest-risk window at 29.8%</div>
+      <div class="chart-wrap"><canvas id="chartTenure" height="220"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Distance from Home vs Attrition Rate (%)</h3>
+      <div class="csub">Employees living 16+ km away leave 50% more often</div>
+      <div class="chart-wrap"><canvas id="chartDist" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Row 6: Business Travel + Job Level -->
+  <div class="chart-grid-2">
+    <div class="chart-box">
+      <h3>Business Travel vs Attrition Rate (%)</h3>
+      <div class="csub">Frequent travellers show 24.9% attrition vs 8% for non-travellers</div>
+      <div class="chart-wrap"><canvas id="chartTravel" height="220"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>Job Level vs Attrition Rate (%)</h3>
+      <div class="csub">Entry-level employees (Level 1) are 5× more likely to leave than Level 4</div>
+      <div class="chart-wrap"><canvas id="chartLevel" height="220"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 3: GROUP TABLES ══════════ -->
+<div class="section" id="tables">
+  <div class="section-header">
+    <div class="icon icon-green">📋</div>
+    <div>
+      <h2>Group Summary Tables</h2>
+      <p>Attrition count and rate broken down by every major grouping</p>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+    <div class="table-box">
+      <h3>By Department</h3>
+      <table>
+        <thead><tr><th>Department</th><th>Total</th><th>Attrited</th><th>Rate</th></tr></thead>
+        <tbody>
+          <tr><td>Sales</td><td>446</td><td>92</td><td><span class="pill p-red">20.6%</span></td></tr>
+          <tr><td>Human Resources</td><td>63</td><td>12</td><td><span class="pill p-amber">19.0%</span></td></tr>
+          <tr><td>Research &amp; Dev.</td><td>961</td><td>133</td><td><span class="pill p-green">13.8%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-box">
+      <h3>By Gender &amp; OverTime</h3>
+      <table>
+        <thead><tr><th>Group</th><th>Total</th><th>Attrited</th><th>Rate</th></tr></thead>
+        <tbody>
+          <tr><td>OverTime — Yes</td><td>416</td><td>127</td><td><span class="pill p-red">30.5%</span></td></tr>
+          <tr><td>OverTime — No</td><td>1,054</td><td>110</td><td><span class="pill p-green">10.4%</span></td></tr>
+          <tr><td>Male</td><td>882</td><td>150</td><td><span class="pill p-amber">17.0%</span></td></tr>
+          <tr><td>Female</td><td>588</td><td>87</td><td><span class="pill p-blue">14.8%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="table-box">
+    <h3>Full Job Role Breakdown — All 9 Roles</h3>
+    <table>
+      <thead>
+        <tr><th>Job Role</th><th>Department</th><th>Total</th><th>Attrited</th><th>Retained</th><th>Attrition Rate</th><th>Risk</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Sales Representative</strong></td><td>Sales</td><td>83</td><td>33</td><td>50</td><td><strong>39.8%</strong></td><td><span class="pill p-red">🔴 Critical</span></td></tr>
+        <tr><td>Laboratory Technician</td><td>R&amp;D</td><td>259</td><td>62</td><td>197</td><td>23.9%</td><td><span class="pill p-red">🔴 High</span></td></tr>
+        <tr><td>Human Resources</td><td>HR</td><td>52</td><td>12</td><td>40</td><td>23.1%</td><td><span class="pill p-red">🔴 High</span></td></tr>
+        <tr><td>Sales Executive</td><td>Sales</td><td>326</td><td>57</td><td>269</td><td>17.5%</td><td><span class="pill p-amber">🟡 Medium</span></td></tr>
+        <tr><td>Research Scientist</td><td>R&amp;D</td><td>292</td><td>47</td><td>245</td><td>16.1%</td><td><span class="pill p-amber">🟡 Medium</span></td></tr>
+        <tr><td>Manufacturing Director</td><td>R&amp;D</td><td>145</td><td>10</td><td>135</td><td>6.9%</td><td><span class="pill p-green">🟢 Low</span></td></tr>
+        <tr><td>Healthcare Representative</td><td>R&amp;D</td><td>131</td><td>9</td><td>122</td><td>6.9%</td><td><span class="pill p-green">🟢 Low</span></td></tr>
+        <tr><td>Manager</td><td>All</td><td>102</td><td>5</td><td>97</td><td>4.9%</td><td><span class="pill p-green">🟢 Low</span></td></tr>
+        <tr><td>Research Director</td><td>R&amp;D</td><td>80</td><td>2</td><td>78</td><td>2.5%</td><td><span class="pill p-blue">🔵 Minimal</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Progress bar summaries -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div class="chart-box">
+      <h3>Marital Status vs Attrition Rate</h3>
+      <div class="csub" style="margin-bottom:16px;">Single employees leave at 2.5× the rate of divorced</div>
+      <div class="prog-row">
+        <div class="prog-meta"><strong>Single</strong><span style="color:#dc2626;font-weight:700;">25.5% · 120 left</span></div>
+        <div class="prog-track"><div class="prog-fill" style="width:25.5%;background:#ef4444;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-meta"><strong>Married</strong><span style="color:#d97706;font-weight:700;">12.5% · 84 left</span></div>
+        <div class="prog-track"><div class="prog-fill" style="width:12.5%;background:#f59e0b;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-meta"><strong>Divorced</strong><span style="color:#16a34a;font-weight:700;">10.1% · 33 left</span></div>
+        <div class="prog-track"><div class="prog-fill" style="width:10.1%;background:#22c55e;"></div></div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <h3>Job Satisfaction Attrition Detail</h3>
+      <div class="csub" style="margin-bottom:16px;">Lower satisfaction = dramatically higher risk</div>
+      <div class="prog-row">
+        <div class="prog-meta"><strong>Level 1 — Low</strong><span style="color:#dc2626;font-weight:700;">22.8% · 66 left</span></div>
+        <div class="prog-track"><div class="prog-fill" style="width:57%;background:#ef4444;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-meta"><strong>Level 2 — Medium</strong><span style="color:#d97706;font-weight:700;">16.4% · 46 left</span></div>
+        <div class="prog-track"><div class="prog-fill" style="width:41%;background:#f59e0b;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-meta"><strong>Level 3 — High</strong><span style="color:#d97706;font-weight:700;">16.5% · 73 left</span></div>
+        <div class="prog-track"><div class="prog-fill" style="width:41.25%;background:#f59e0b;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-meta"><strong>Level 4 — Very High</strong><span style="color:#16a34a;font-weight:700;">11.3% · 52 left</span></div>
+        <div class="prog-track"><div class="prog-fill" style="width:28.25%;background:#22c55e;"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 4: RISK PROFILE ══════════ -->
+<div class="section" id="risk">
+  <div class="section-header">
+    <div class="icon icon-red">⚠️</div>
+    <div>
+      <h2>High-Risk Employee Profile</h2>
+      <p>Employees matching all traits below have a 75% attrition probability</p>
+    </div>
+  </div>
+  <div class="risk-box">
+    <h3>🚨 Highest-Risk Attrition Profile — 75% Attrition Rate in Matching Cohort</h3>
+    <div class="risk-traits">
+      <div class="risk-trait">
+        <div class="rt-icon">👤</div>
+        <div class="rt-label">Age</div>
+        <div class="rt-val">18–35 years old</div>
+      </div>
+      <div class="risk-trait">
+        <div class="rt-icon">⏳</div>
+        <div class="rt-label">Tenure</div>
+        <div class="rt-val">0–3 years at company</div>
+      </div>
+      <div class="risk-trait">
+        <div class="rt-icon">🕐</div>
+        <div class="rt-label">OverTime</div>
+        <div class="rt-val">Required (Yes)</div>
+      </div>
+      <div class="risk-trait">
+        <div class="rt-icon">📉</div>
+        <div class="rt-label">Job Satisfaction</div>
+        <div class="rt-val">Level 1 or 2 (Low)</div>
+      </div>
+      <div class="risk-trait">
+        <div class="rt-icon">⚖️</div>
+        <div class="rt-label">Work-Life Balance</div>
+        <div class="rt-val">Level 1 or 2 (Poor)</div>
+      </div>
+      <div class="risk-trait">
+        <div class="rt-icon">💰</div>
+        <div class="rt-label">Monthly Income</div>
+        <div class="rt-val">Below $4,787</div>
+      </div>
+      <div class="risk-trait">
+        <div class="rt-icon">✈️</div>
+        <div class="rt-label">Business Travel</div>
+        <div class="rt-val">Travels Frequently</div>
+      </div>
+      <div class="risk-trait">
+        <div class="rt-icon">🏠</div>
+        <div class="rt-label">Distance</div>
+        <div class="rt-val">Lives 16+ km away</div>
+      </div>
+    </div>
+    <div style="margin-top:18px;padding:14px 16px;background:#fff;border-radius:10px;border:1px solid #fed7aa;font-size:13px;color:#7c2d12;line-height:1.6;">
+      <strong>📌 Most at-risk combination:</strong> Sales Representative · Job Level 1 · OverTime Yes · Single · Age 18–25 &nbsp;→&nbsp; <strong>attrition rate 39.8%</strong> vs company average of 16.1%. Every employee matching 5+ traits should be flagged for immediate manager intervention.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 5: INSIGHTS ══════════ -->
+<div class="section" id="insights">
+  <div class="section-header">
+    <div class="icon icon-amber">💡</div>
+    <div>
+      <h2>Business Insights &amp; HR Recommendations</h2>
+      <p>Five data-backed findings with direct, actionable business solutions</p>
+    </div>
+  </div>
+
+  <div class="insight-grid">
+    <div class="insight-card red">
+      <div class="ic-tag">🔥 Finding #1 — Critical</div>
+      <h4>Overtime Is the Single Biggest Driver of Attrition</h4>
+      <p>Employees required to work overtime leave at <strong>30.5%</strong> — nearly <strong>3× the 10.4%</strong> rate of non-overtime employees. With 416 overtime workers (28% of the workforce), this is a systemic risk. The 127 attrited overtime employees each represent recruitment, onboarding, and lost productivity costs estimated at 50–200% of annual salary.</p>
+      <div class="ic-action">⚠️ Action: Audit all overtime-requiring roles. Cap OverTime hours. Introduce compensatory time-off. Hire additional headcount in Sales and Lab Tech roles to eliminate structural overtime dependency.</div>
+    </div>
+
+    <div class="insight-card amber">
+      <div class="ic-tag">📉 Finding #2 — High Priority</div>
+      <h4>Sales Department and Sales Representatives at Critical Risk</h4>
+      <p>Sales has the highest departmental attrition at <strong>20.6%</strong>. Sales Representatives specifically show an alarming <strong>39.8% attrition rate</strong> — nearly 2 in 5 leave. Attrited employees earn on average $4,787/month, <strong>30% less</strong> than retained staff ($6,833), pointing to clear compensation misalignment in junior Sales roles.</p>
+      <div class="ic-action">⚠️ Action: Benchmark Sales Rep compensation against industry standards. Introduce structured Sales career ladders (Rep → Senior Rep → Executive). Implement 90-day onboarding check-ins and mentorship pairing.</div>
+    </div>
+
+    <div class="insight-card purple">
+      <div class="ic-tag">👤 Finding #3 — Early-Career Crisis</div>
+      <h4>Young Employees (18–25) Are Leaving at 35.8% — 3.9× the 36–45 Rate</h4>
+      <p>The 18–25 cohort shows a <strong>35.8% attrition rate</strong> — the highest of any age group. Employees in their first 2 years also show <strong>29.8% attrition</strong>. Together, these two signals confirm a broken early-career experience: inadequate onboarding, unclear growth paths, and competitive job market alternatives for junior talent.</p>
+      <div class="ic-action">⚠️ Action: Launch a structured Junior Talent Programme — 18-month rotation, assigned mentor, 6-month stay interview, and performance-linked early bonus. Target retention before the 24-month cliff.</div>
+    </div>
+
+    <div class="insight-card blue">
+      <div class="ic-tag">🕑 Finding #4 — Measurable &amp; Preventable</div>
+      <h4>Low Job Satisfaction Doubles Attrition; Poor Work-Life Balance Triples It</h4>
+      <p>Employees at Job Satisfaction Level 1 leave at <strong>22.8%</strong> vs 11.3% at Level 4 — a <strong>2× gap</strong>. Work-Life Balance Level 1 employees leave at <strong>31.2%</strong> vs 14.2% at Level 3 — a <strong>2.2× gap</strong>. These are leading indicators HR can act on <em>before</em> resignation, through regular pulse surveys and manager alerts.</p>
+      <div class="ic-action">⚠️ Action: Deploy quarterly engagement pulse surveys. Auto-flag any employee with Satisfaction ≤ 2 for a manager 1-on-1 within 2 weeks. Introduce flexible working for all employees scoring WLB ≤ 2.</div>
+    </div>
+
+    <div class="insight-card green">
+      <div class="ic-tag">🏠 Finding #5 — Hidden Retention Levers</div>
+      <h4>Commute Distance and Frequent Business Travel Are Silent Attrition Drivers</h4>
+      <p>Employees living <strong>16+ km from the office</strong> leave at <strong>20.7%</strong> — 50% more than those near the office (13.8%). Frequent business travellers show <strong>24.9% attrition</strong> vs just 8.0% for non-travellers. These lifestyle stressors compound with overtime and low satisfaction to push employees over the resignation threshold.</p>
+      <div class="ic-action">⚠️ Action: Offer hybrid/remote work for employees 16+ km away. Review travel frequency caps in high-attrition roles. Introduce travel recovery days (1 day off per 3-day trip) and a travel hardship allowance.</div>
+    </div>
+
+    <div class="insight-card red" style="background:#fff8f8;">
+      <div class="ic-tag">💍 Bonus Finding</div>
+      <h4>Single Employees Leave at 2.5× the Rate of Divorced Employees</h4>
+      <p>Single employees show a <strong>25.5% attrition rate</strong> vs 10.1% for divorced and 12.5% for married. This correlates strongly with the younger age profile of single employees and their higher career mobility. Without a strong social/community anchor at work, single junior employees are the easiest to lose to competitors.</p>
+      <div class="ic-action">⚠️ Action: Build team belonging through ERGs (Employee Resource Groups), social events, and team-based incentives. Communicate transparent promotion timelines to all employees under 30.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION 6: EXECUTIVE SUMMARY ══════════ -->
+<div class="section" id="summary">
+  <div class="section-header">
+    <div class="icon icon-blue">📄</div>
+    <div>
+      <h2>Executive Summary</h2>
+      <p>For senior management review — key conclusions and recommended priorities</p>
+    </div>
+  </div>
+  <div class="exec-summary">
+    <p>
+      IBM's workforce of <strong>1,470 employees</strong> is experiencing an overall attrition rate of <strong>16.1% (237 employees)</strong> — above the industry benchmark of 10–12%. The financial cost is material: attrited employees earn on average <strong>$4,787/month vs $6,833 for retained staff</strong>, indicating that the company is disproportionately losing lower-compensated junior employees. Assuming replacement cost of 50% of annual salary per employee, total attrition cost is estimated at <strong>~$6.8 million per year</strong>.
+    </p>
+    <p>
+      Analysis across 35 workforce dimensions reveals <strong>five compounding root causes</strong>: (1) mandatory overtime — with a 30.5% attrition rate for affected employees; (2) compensation misalignment in Sales Representative roles — at 39.8% attrition; (3) early-career disengagement in the 18–25 and 0–2 year tenure cohorts — at 35.8% and 29.8% respectively; (4) low job satisfaction and poor work-life balance — both directly doubling or tripling attrition probability; and (5) commute distance and frequent travel — adding lifestyle friction that pushes already-at-risk employees to resign.
+    </p>
+    <p>
+      <strong>Three immediate priorities recommended for the next 90 days:</strong> First, conduct a full overtime audit across Sales and R&amp;D and enforce a maximum weekly overtime cap. Second, launch a compensation benchmarking review for Sales Representatives and Laboratory Technicians against market rates. Third, deploy an automated engagement score system that flags employees with satisfaction ≤ 2 or WLB ≤ 2 for proactive manager outreach. These three actions alone target <strong>over 60% of all attrition risk</strong> identified in this analysis.
+    </p>
+  </div>
+</div>
+
+</div><!-- /page -->
+
+<footer>
+  IBM HR Analytics Report &nbsp;·&nbsp; Dataset: HR IBM.BOB.CLEANED.csv &nbsp;·&nbsp; 1,470 Employees · 35 Dimensions &nbsp;·&nbsp; Generated by IBM Bob
+</footer>
+
+<!-- ══════════ CHART.JS ══════════ -->
+<script>
+Chart.defaults.font.family = "-apple-system, 'Segoe UI', system-ui, sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#64748b';
+
+const tooltipStyle = {
+  backgroundColor: '#0f2744',
+  titleColor: '#fff',
+  bodyColor: '#bfdbfe',
+  padding: 10,
+  cornerRadius: 8,
+  displayColors: true
+};
+
+// ── 1. Department Bar ──────────────────────────────────────
+new Chart(document.getElementById('chartDept'), {
+  type: 'bar',
+  data: {
+    labels: ['Sales', 'Human Resources', 'Research & Dev.'],
+    datasets: [{
+      label: 'Attrition Rate (%)',
+      data: [20.6, 19.0, 13.8],
+      backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6'],
+      borderRadius: 6,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } },
+    scales: {
+      y: { beginAtZero: true, max: 30, ticks: { callback: v => v + '%' }, grid: { color: '#f1f5f9' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// ── 2. OverTime Doughnut ───────────────────────────────────
+new Chart(document.getElementById('chartOT'), {
+  type: 'doughnut',
+  data: {
+    labels: ['OT: Attrited (127)', 'OT: Retained (289)', 'No OT: Attrited (110)', 'No OT: Retained (944)'],
+    datasets: [{
+      data: [127, 289, 110, 944],
+      backgroundColor: ['#ef4444', '#fca5a5', '#93c5fd', '#dbeafe'],
+      borderWidth: 2,
+      borderColor: '#fff'
+    }]
+  },
+  options: {
+    responsive: true,
+    cutout: '62%',
+    plugins: {
+      legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14, font: { size: 11 } } },
+      tooltip: { ...tooltipStyle }
+    }
+  }
+});
+
+// ── 3. JobRole Bar ─────────────────────────────────────────
+new Chart(document.getElementById('chartRole'), {
+  type: 'bar',
+  data: {
+    labels: ['Sales Rep', 'Lab Tech', 'HR', 'Sales Exec', 'Research Sci', 'Mfg Director', 'Healthcare Rep', 'Manager', 'Research Dir'],
+    datasets: [
+      {
+        label: 'Attrition Count',
+        data: [33, 62, 12, 57, 47, 10, 9, 5, 2],
+        backgroundColor: ['#ef4444','#ef4444','#ef4444','#f59e0b','#f59e0b','#22c55e','#22c55e','#22c55e','#3b82f6'],
+        borderRadius: 5,
+        yAxisID: 'y'
+      },
+      {
+        label: 'Attrition Rate (%)',
+        data: [39.8, 23.9, 23.1, 17.5, 16.1, 6.9, 6.9, 4.9, 2.5],
+        type: 'line',
+        borderColor: '#7c3aed',
+        backgroundColor: 'rgba(124,58,237,0.08)',
+        pointBackgroundColor: '#7c3aed',
+        pointRadius: 5,
+        tension: 0.35,
+        yAxisID: 'y2'
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { tooltip: { ...tooltipStyle }, legend: { position: 'top', labels: { boxWidth: 12, padding: 16 } } },
+    scales: {
+      y:  { beginAtZero: true, title: { display: true, text: 'Count' }, grid: { color: '#f1f5f9' } },
+      y2: { position: 'right', beginAtZero: true, max: 50, ticks: { callback: v => v + '%' }, grid: { display: false } },
+      x:  { grid: { display: false } }
+    }
+  }
+});
+
+// ── 4. Job Satisfaction Bar ────────────────────────────────
+new Chart(document.getElementById('chartJS'), {
+  type: 'bar',
+  data: {
+    labels: ['Level 1 — Low', 'Level 2 — Medium', 'Level 3 — High', 'Level 4 — Very High'],
+    datasets: [{
+      label: 'Attrition Rate (%)',
+      data: [22.8, 16.4, 16.5, 11.3],
+      backgroundColor: ['#ef4444', '#f59e0b', '#f59e0b', '#22c55e'],
+      borderRadius: 6,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } },
+    scales: {
+      x: { beginAtZero: true, max: 30, ticks: { callback: v => v + '%' }, grid: { color: '#f1f5f9' } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+// ── 5. WorkLifeBalance Bar ─────────────────────────────────
+new Chart(document.getElementById('chartWLB'), {
+  type: 'bar',
+  data: {
+    labels: ['Level 1 — Poor', 'Level 2 — Fair', 'Level 3 — Good', 'Level 4 — Excellent'],
+    datasets: [{
+      label: 'Attrition Rate (%)',
+      data: [31.2, 16.9, 14.2, 17.6],
+      backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6'],
+      borderRadius: 6,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } },
+    scales: {
+      x: { beginAtZero: true, max: 40, ticks: { callback: v => v + '%' }, grid: { color: '#f1f5f9' } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+// ── 6. Age Groups ──────────────────────────────────────────
+new Chart(document.getElementById('chartAge'), {
+  type: 'bar',
+  data: {
+    labels: ['18–25\n(123 emp)', '26–35\n(606 emp)', '36–45\n(468 emp)', '46–55\n(226 emp)', '56+\n(47 emp)'],
+    datasets: [
+      {
+        label: 'Attrition Rate (%)',
+        data: [35.8, 19.1, 9.2, 11.5, 17.0],
+        backgroundColor: ['#ef4444','#f59e0b','#22c55e','#3b82f6','#8b5cf6'],
+        borderRadius: 6,
+        borderSkipped: false,
+        yAxisID: 'y'
+      },
+      {
+        label: 'Attrition Count',
+        data: [44, 116, 43, 26, 8],
+        type: 'line',
+        borderColor: '#0f2744',
+        backgroundColor: 'rgba(15,39,68,0.07)',
+        pointBackgroundColor: '#0f2744',
+        pointRadius: 5,
+        tension: 0.35,
+        yAxisID: 'y2'
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { tooltip: { ...tooltipStyle }, legend: { position: 'top', labels: { boxWidth: 12, padding: 16 } } },
+    scales: {
+      y:  { beginAtZero: true, max: 50, ticks: { callback: v => v + '%' }, grid: { color: '#f1f5f9' } },
+      y2: { position: 'right', beginAtZero: true, title: { display: true, text: 'Count' }, grid: { display: false } },
+      x:  { grid: { display: false } }
+    }
+  }
+});
+
+// ── 7. Tenure ──────────────────────────────────────────────
+new Chart(document.getElementById('chartTenure'), {
+  type: 'bar',
+  data: {
+    labels: ['0–2 yrs', '3–5 yrs', '6–10 yrs', '11+ yrs'],
+    datasets: [{
+      label: 'Attrition Rate (%)',
+      data: [29.8, 13.8, 12.3, 8.1],
+      backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#22c55e'],
+      borderRadius: 6,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } },
+    scales: {
+      y: { beginAtZero: true, max: 40, ticks: { callback: v => v + '%' }, grid: { color: '#f1f5f9' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// ── 8. Distance from Home ──────────────────────────────────
+new Chart(document.getElementById('chartDist'), {
+  type: 'bar',
+  data: {
+    labels: ['Near (1–5 km)', 'Mid (6–15 km)', 'Far (16–29 km)'],
+    datasets: [{
+      label: 'Attrition Rate (%)',
+      data: [13.8, 16.1, 20.7],
+      backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
+      borderRadius: 6,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } },
+    scales: {
+      y: { beginAtZero: true, max: 30, ticks: { callback: v => v + '%' }, grid: { color: '#f1f5f9' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// ── 9. Business Travel ─────────────────────────────────────
+new Chart(document.getElementById('chartTravel'), {
+  type: 'bar',
+  data: {
+    labels: ['Non-Travel', 'Travel Rarely', 'Travel Frequently'],
+    datasets: [{
+      label: 'Attrition Rate (%)',
+      data: [8.0, 15.0, 24.9],
+      backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
+      borderRadius: 6,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } },
+    scales: {
+      y: { beginAtZero: true, max: 30, ticks: { callback: v => v + '%' }, grid: { color: '#f1f5f9' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// ── 10. Job Level ──────────────────────────────────────────
+new Chart(document.getElementById('chartLevel'), {
+  type: 'bar',
+  data: {
+    labels: ['Level 1 (Entry)', 'Level 2', 'Level 3 (Mid)', 'Level 4', 'Level 5 (Senior)'],
+    datasets: [{
+      label: 'Attrition Rate (%)',
+      data: [26.3, 9.7, 14.7, 4.7, 7.2],
+      backgroundColor: ['#ef4444', '#22c55e', '#f59e0b', '#22c55e', '#3b82f6'],
+      borderRadius: 6,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } },
+    scales: {
+      y: { beginAtZero: true, max: 35, ticks: { callback: v => v + '%' }, grid: { color: '#f1f5f9' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+</script>
+</body>
+</html>

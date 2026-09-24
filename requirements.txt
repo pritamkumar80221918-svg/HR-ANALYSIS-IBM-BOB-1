@@ -1,0 +1,35 @@
+# ============================================================
+# IBM HR Analytics — Project Requirements
+# ============================================================
+# Dataset Source:
+#   IBM HR Analytics Employee Attrition & Performance
+#   https://www.kaggle.com/datasets/pavansubhasht/ibm-hr-analytics-attrition-dataset?resource=download
+#
+# Platform: Python 3.8+
+# No third-party packages are required for the data pipeline.
+# All scripts use the Python standard library only.
+# ============================================================
+
+# ── Standard Library (built-in, no install needed) ──────────
+# csv        — CSV reading / writing
+# collections — Counter, defaultdict for aggregation
+# re          — Regex pattern matching (audit checks)
+# json        — JSON serialisation of computed metrics
+# os          — File path utilities
+
+# ── Optional: for advanced analysis or notebook use ─────────
+# Uncomment the lines below if you want to extend the project
+# with pandas, matplotlib, or Jupyter:
+
+# pandas==2.2.2
+# numpy==1.26.4
+# matplotlib==3.9.0
+# seaborn==0.13.2
+# jupyter==1.0.0
+# openpyxl==3.1.2
+
+# ── Report (HTML, no install needed) ────────────────────────
+# HR_Attrition_Report.html uses Chart.js loaded from CDN:
+#   https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js
+# Open the HTML file in any modern browser (Chrome, Edge, Firefox, Safari).
+# No web server required.
